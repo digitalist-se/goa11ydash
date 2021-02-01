@@ -2,36 +2,58 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-	http.HandleFunc("/", A11yServer)
-	http.ListenAndServe(":8080", nil)
+
+	e := echo.New()
+
+	// Middleware
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+	// e.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
+	// 	// Be careful to use constant time comparison to prevent timing attacks
+	// 	if subtle.ConstantTimeCompare([]byte(username), []byte("foppa")) == 1 &&
+	// 		subtle.ConstantTimeCompare([]byte(password), []byte("T0ffl0r")) == 1 {
+	// 		return true, nil
+	// 	}
+	// 	return false, nil
+	// }))
+	// Routes
+	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
+		Level: 5,
+	}))
+	e.GET("/", A11y)
+	e.HEAD("/", A11y)
+
+	// Start server
+	e.Logger.Fatal(e.Start(":9000"))
+
 }
 
 // A11yServer runs the server
-func A11yServer(w http.ResponseWriter, r *http.Request) {
 
-	//lines := []string{}
+func A11y(c echo.Context) error {
+
 	files, err := ReadDir("reports/")
 
 	if err != nil {
 		panic(err)
 	}
-
 	output, err := json.Marshal(files)
 	if err != nil {
 		log.Fatal(err)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	//fmt.Println(string(jsonData))
-	fmt.Fprintf(w, string(output))
+	c.Response().Header().Set(echo.HeaderContentType, "application/json")
+	return c.String(http.StatusOK, string(output))
 }
 
 func FilePathWalkDir(root string) ([]string, error) {
@@ -91,17 +113,6 @@ func ReadDir(root string) ([]string, error) {
 					var fourth string
 					fourth = third + "/" + file.Name()
 					files = append(files, fourth)
-					// What I get:
-					//["reports/bar/2021-01-25/pages/kulturhusetstadsteatern.dgstage.se/node-1","reports/bar/2021-01-26/pages/kulturhusetstadsteatern.dgstage.se/node-2"]
-					// What I want explained in
-					// reports:
-					//	 bar:
-					//	   2021-01-25:
-					//	 	 pages:
-					//			kulturhusetstadsteatern.dgstage.se:
-					//			- node-1
-					//			- node-2
-					//			- node-3
 				}
 			}
 		}
