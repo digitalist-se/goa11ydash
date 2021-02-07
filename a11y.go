@@ -1,3 +1,5 @@
+// Env. variables that should be set:
+// JSONHOST = the host that deliveres the jsonfiles from Sitespeedio, it not set, defaults to http://localhost:9000
 package main
 
 import (
@@ -5,8 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
-	"time"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -31,17 +32,16 @@ func main() {
 	e.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		Level: 5,
 	}))
-	e.GET("/", A11y)
-	e.HEAD("/", A11y)
+	e.GET("/", Serve)
+	e.HEAD("/", Serve)
 
 	// Start server
 	e.Logger.Fatal(e.Start(":9000"))
 
 }
 
-// A11yServer runs the server
-
-func A11y(c echo.Context) error {
+// Serve serves the response.
+func Serve(c echo.Context) error {
 
 	files, err := ReadDir("reports/")
 
@@ -56,25 +56,16 @@ func A11y(c echo.Context) error {
 	return c.String(http.StatusOK, string(output))
 }
 
-func FilePathWalkDir(root string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			base := filepath.Base(path)
-			l := "2000-01-02"
-			_, err := time.Parse(l, base)
-			if err != nil {
-				return filepath.SkipDir
-			}
-			files = append(files, path)
-		}
-		log.Output(-1, files[0])
-		return nil
-	})
-	return files, err
-}
-
+// ReadDir reads the directories.
 func ReadDir(root string) ([]string, error) {
+
+	// env. variables
+	var host string
+	host = os.Getenv("JSONHOST")
+	if host == "" {
+		host = "http://localhost:9000"
+	}
+
 	var files []string
 	f, err := os.Open(root)
 	if err != nil {
@@ -112,15 +103,61 @@ func ReadDir(root string) ([]string, error) {
 				for _, file := range fileInfo {
 					var fourth string
 					fourth = third + "/" + file.Name()
-					files = append(files, fourth)
+
+					var doexist string
+					doexist = fourth + "/data"
+
+					if _, err := os.Stat(doexist); err == nil {
+
+						var axe string
+						axe = doexist + "/axe.run-3.json"
+
+						var axeSummary string
+						axeSummary = doexist + "/axe.pageSummary.json"
+
+						var browsertime string
+						browsertime = doexist + "/browsertime.run-3.json"
+
+						var browsertimeHar string
+						browsertimeHar = doexist + "/browsertime.har"
+
+						var browsertimeSummary string
+						browsertimeSummary = doexist + "/browsertime.pageSummary.json"
+
+						var coach string
+						coach = doexist + "/coach.run-3.json"
+
+						var coachSummary string
+						coachSummary = doexist + "/coach.pageSummary.json"
+
+						var pageXray string
+						pageXray = doexist + "/pagexray.run-3.json"
+
+						var pageXraySummary string
+						pageXraySummary = doexist + "/pagexray.pageSummary.json"
+
+						var thirdPartyRun string
+						thirdPartyRun = doexist + "/thirdparty.run.json"
+
+						var thridPartySummary string
+						thridPartySummary = doexist + "/thirdparty.pageSummary.json"
+
+						files = append(files, axe, browsertime, axeSummary, browsertimeHar, browsertimeSummary, coach, coachSummary, pageXray, pageXraySummary, thirdPartyRun, thridPartySummary)
+
+					}
+
 				}
 			}
 		}
+	}
 
+	// Remove reports dir from string and replace it with domain containing json reports
+	for i := range files {
+		files[i] = strings.ReplaceAll(files[i], "reports", host)
 	}
 
 	return files, nil
 }
 
-// https://stackoverflow.com/questions/32962128/create-iterative-json-directory-tree-golang
-// https://dev.to/manigandand/list-files-in-a-directory-using-golang-3k78
+// https://github.com/unrolled/secure
+// https://github.com/labstack/echo/
