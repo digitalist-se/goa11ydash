@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -155,6 +156,7 @@ func ReadDir(root string) ([]string, error) {
 	for i := range files {
 		files[i] = strings.ReplaceAll(files[i], "reports", host)
 	}
+	sort.Strings(files)
 
 	return files, nil
 }
